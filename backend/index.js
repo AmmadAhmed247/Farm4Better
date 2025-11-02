@@ -7,6 +7,7 @@ import authRoutes from "./routes/auth.route.js";
 import FarmerRoute from "./routes/farmer.route.js";
 import productRoutes from "./routes/product.route.js";
 import auth from './middlewares/auth.js';
+import cartRoutes from './routes/cart.route.js';
 dotenv.config();
 
 const app = express();
@@ -26,8 +27,8 @@ app.use(
 
 app.use("/api/auth", authRoutes);
 app.use("/api/farmer", FarmerRoute);
-app.use("/api/products", auth, productRoutes); // Protect all product routes with auth
-
+app.use("/api/products",productRoutes);
+app.use('/api/cart', cartRoutes);
 
 
 

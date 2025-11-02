@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { productService } from '../services/product';
-import { Search, Filter, MapPin, Star, ShoppingCart, Heart, X, SlidersHorizontal } from 'lucide-react';
-
-// we'll fetch real products from backend
-// component will map backend product shape to UI-friendly fields
+import { cartService } from '../services/cart.service';
+import { Search, Filter, MapPin, Star, ShoppingCart, Heart, X, SlidersHorizontal, Check } from 'lucide-react';
 
 const categories = ["All", "Vegetables", "Fruits", "Grains", "Dairy & Eggs", "Spices"];
 const locations = ["All Locations", "Punjab", "Sindh", "KPK", "Balochistan", "Islamabad"];
@@ -20,6 +19,9 @@ const Marketplace = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [addingToCart, setAddingToCart] = useState({});
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -27,7 +29,6 @@ const Marketplace = () => {
       setError(null);
       try {
         const res = await productService.getAll();
-        // res.products is an array from backend
         const mapped = res.products.map(p => ({
           id: p._id,
           name: p.name,
@@ -52,7 +53,25 @@ const Marketplace = () => {
     load();
   }, []);
 
-  // Filter products (based on fetched products)
+  const handleAddToCart = async (productId, productName, e) => {
+    e.preventDefault(); // Prevent navigation when clicking Add to Cart
+    e.stopPropagation();
+    
+    setAddingToCart(prev => ({ ...prev, [productId]: true }));
+    try {
+      await cartService.addToCart(productId, 1);
+      setSuccessMessage(`${productName} added to cart!`);
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+    } catch (err) {
+      console.error('Failed to add to cart:', err);
+      alert(err.response?.data?.message || 'Failed to add item to cart');
+    } finally {
+      setAddingToCart(prev => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  // Filter products
   const filteredProducts = (products || []).filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
@@ -74,6 +93,14 @@ const Marketplace = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Success Toast */}
+      {showSuccessToast && (
+        <div className="fixed top-4 right-4 z-50 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-in">
+          <Check className="w-5 h-5" />
+          <span className="font-medium">{successMessage}</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white py-8 px-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
@@ -236,7 +263,7 @@ const Marketplace = () => {
             {/* Results Count */}
             <div className="mb-6 flex items-center justify-between">
               <p className="text-gray-600">
-                Showing <span className="font-semibold text-gray-900">{(products || []).length}</span> products
+                Showing <span className="font-semibold text-gray-900">{sortedProducts.length}</span> products
               </p>
             </div>
 
@@ -245,12 +272,13 @@ const Marketplace = () => {
               <div className="text-center py-12">Loading products...</div>
             ) : error ? (
               <div className="text-center text-red-600 py-12">{error}</div>
-            ) : products.length > 0 ? (
+            ) : sortedProducts.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {sortedProducts.map(product => (
-                  <div
+                  <Link
                     key={product.id}
-                    className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group"
+                    to={`/product/${product.id}`}
+                    className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group block"
                   >
                     {/* Image */}
                     <div className="relative h-56 overflow-hidden">
@@ -269,14 +297,22 @@ const Marketplace = () => {
                           <span className="text-white font-bold text-lg">Out of Stock</span>
                         </div>
                       )}
-                      <button className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-lg hover:bg-red-50 transition-colors">
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-lg hover:bg-red-50 transition-colors"
+                      >
                         <Heart size={20} className="text-gray-600 hover:text-red-500" />
                       </button>
                     </div>
 
                     {/* Content */}
                     <div className="p-5">
-                        <h3 className="font-bold text-lg text-gray-900 mb-2">{product.name}</h3>
+                      <h3 className="font-bold text-lg text-gray-900 mb-2 hover:text-green-600 transition">
+                        {product.name}
+                      </h3>
                       
                       <div className="flex items-center gap-2 mb-2">
                         <div className="flex items-center gap-1">
@@ -299,18 +335,21 @@ const Marketplace = () => {
                       </div>
 
                       <button
-                        disabled={!product.inStock}
+                        disabled={!product.inStock || addingToCart[product.id]}
+                        onClick={(e) => handleAddToCart(product.id, product.name, e)}
                         className={`w-full py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors ${
                           product.inStock
-                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            ? addingToCart[product.id]
+                              ? 'bg-green-400 text-white cursor-wait'
+                              : 'bg-green-600 text-white hover:bg-green-700'
                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         }`}
                       >
                         <ShoppingCart size={20} />
-                        {product.inStock ? 'Add to Cart' : 'Out of Stock'}
+                        {addingToCart[product.id] ? 'Adding...' : product.inStock ? 'Add to Cart' : 'Out of Stock'}
                       </button>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (

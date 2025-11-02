@@ -98,7 +98,7 @@ const BecomeFarmer = () => {
           bankProof: null,
         });
         setSubmitted(false);
-        navigate('/auth'); // Redirect to login page
+        navigate('/'); // Redirect to login page
       }, 3000);
 
     } catch (error) {

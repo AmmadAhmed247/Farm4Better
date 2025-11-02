@@ -33,8 +33,10 @@ export const farmerService = {
   getProfile: async ({ id, email }) => {
     const params = {};
     if (id) params.id = id;
+    console.log("Fetching farmer profile with params:", params);
     if (email) params.email = email;
-    const response = await api.get('/api/farmer/profile', { params });
+    const response = await api.get(`/api/farmer/profile/${id}`
+    );
     return response.data;
   }
   ,

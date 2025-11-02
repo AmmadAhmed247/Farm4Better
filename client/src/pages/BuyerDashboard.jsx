@@ -1,104 +1,261 @@
-import React, { useState } from 'react';
-import { Package, MapPin, Clock, CheckCircle, XCircle, Truck, Phone, Mail, User, Calendar, DollarSign, Star, MessageSquare, Download, Eye, Search, Filter, ChevronRight, ShoppingBag, Home, Bell, Settings, LogOut, Menu, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Package, MapPin, Clock, CheckCircle, XCircle, Truck, Phone, Star, MessageSquare, Download, Search, Filter, ChevronRight, ShoppingBag, Home, Bell, Settings, LogOut, Menu, X, ShoppingCart, Trash2, Plus, Minus, User, Mail, Edit, Save } from 'lucide-react';
+import { cartService } from '../services/cart.service';
+import { orderService } from '../services/order.service';
+// import { userService } from '../services/user.service';
 
 const BuyerDashboard = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('orders');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  
+  // Cart state
+  const [cart, setCart] = useState(null);
+  const [loadingCart, setLoadingCart] = useState(false);
+  const [updatingItem, setUpdatingItem] = useState({});
+  
+  // Orders state
+  const [orders, setOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  
+  // Profile state
+  const [profile, setProfile] = useState(null);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
+  
+  // Address state
+  const [addresses, setAddresses] = useState([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(null);
+  const [addressForm, setAddressForm] = useState({
+    label: '',
+    fullAddress: '',
+    street: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    phone: '',
+    isDefault: false
+  });
 
-  const [orders] = useState([
-    {
-      id: 'ORD-2025-001',
-      date: '2025-10-28',
-      status: 'delivered',
-      total: 2450,
-      items: [
-        { name: 'Organic Tomatoes', quantity: 5, unit: 'kg', price: 120, farmer: 'Ahmed Khan' },
-        { name: 'Fresh Potatoes', quantity: 10, unit: 'kg', price: 80, farmer: 'Hassan Ali' },
-      ],
-      farmer: {
-        name: 'Ahmed Khan',
-        phone: '+92 300 1234567',
-        location: 'Multan, Punjab',
-        rating: 4.8
-      },
-      delivery: {
-        address: 'House 123, Street 5, DHA Phase 6, Karachi',
-        estimatedDate: '2025-10-30',
-        actualDate: '2025-10-29',
-        trackingSteps: [
-          { status: 'Order Placed', date: '2025-10-28 10:30 AM', completed: true },
-          { status: 'Processing', date: '2025-10-28 02:15 PM', completed: true },
-          { status: 'Dispatched', date: '2025-10-29 08:00 AM', completed: true },
-          { status: 'Out for Delivery', date: '2025-10-29 10:30 AM', completed: true },
-          { status: 'Delivered', date: '2025-10-29 02:45 PM', completed: true }
-        ]
-      }
-    },
-    {
-      id: 'ORD-2025-002',
-      date: '2025-10-30',
-      status: 'in-transit',
-      total: 1800,
-      items: [
-        { name: 'Fresh Spinach', quantity: 3, unit: 'kg', price: 100, farmer: 'Fatima Bibi' },
-        { name: 'Organic Carrots', quantity: 5, unit: 'kg', price: 90, farmer: 'Fatima Bibi' },
-      ],
-      farmer: {
-        name: 'Fatima Bibi',
-        phone: '+92 301 7654321',
-        location: 'Lahore, Punjab',
-        rating: 4.9
-      },
-      delivery: {
-        address: 'Flat 45, Block C, Gulshan-e-Iqbal, Karachi',
-        estimatedDate: '2025-11-01',
-        trackingSteps: [
-          { status: 'Order Placed', date: '2025-10-30 11:00 AM', completed: true },
-          { status: 'Processing', date: '2025-10-30 03:30 PM', completed: true },
-          { status: 'Dispatched', date: '2025-10-31 09:00 AM', completed: true },
-          { status: 'Out for Delivery', date: '2025-11-01 08:00 AM', completed: false },
-          { status: 'Delivered', date: '', completed: false }
-        ]
-      }
-    },
-    {
-      id: 'ORD-2025-003',
-      date: '2025-10-31',
-      status: 'processing',
-      total: 3200,
-      items: [
-        { name: 'Fresh Mangoes', quantity: 10, unit: 'kg', price: 200, farmer: 'Imran Ahmed' },
-        { name: 'Organic Bananas', quantity: 5, unit: 'dozen', price: 150, farmer: 'Imran Ahmed' },
-      ],
-      farmer: {
-        name: 'Imran Ahmed',
-        phone: '+92 302 9876543',
-        location: 'Multan, Punjab',
-        rating: 4.7
-      },
-      delivery: {
-        address: 'Villa 78, Phase 8, DHA, Karachi',
-        estimatedDate: '2025-11-03',
-        trackingSteps: [
-          { status: 'Order Placed', date: '2025-10-31 09:15 AM', completed: true },
-          { status: 'Processing', date: '2025-10-31 12:00 PM', completed: true },
-          { status: 'Dispatched', date: '', completed: false },
-          { status: 'Out for Delivery', date: '', completed: false },
-          { status: 'Delivered', date: '', completed: false }
-        ]
-      }
-    }
-  ]);
+  // Password change state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
 
   const [notifications] = useState([
-    { id: 1, message: 'Your order ORD-2025-002 is out for delivery', time: '30 mins ago', read: false },
-    { id: 2, message: 'Order ORD-2025-001 has been delivered', time: '2 days ago', read: false },
-    { id: 3, message: 'Your review for Ahmed Khan is appreciated', time: '3 days ago', read: true }
+    { id: 1, message: 'Your order is out for delivery', time: '30 mins ago', read: false },
+    { id: 2, message: 'Order has been delivered', time: '2 days ago', read: false },
+    { id: 3, message: 'Your review is appreciated', time: '3 days ago', read: true }
   ]);
+
+  // Load data based on active tab
+  useEffect(() => {
+    if (activeTab === 'cart') {
+      loadCart();
+    } else if (activeTab === 'orders') {
+      loadOrders();
+    } else if (activeTab === 'profile') {
+      loadProfile();
+    } else if (activeTab === 'addresses') {
+      loadAddresses();
+    }
+  }, [activeTab]);
+
+  // Cart functions
+  const loadCart = async () => {
+    setLoadingCart(true);
+    try {
+      const res = await cartService.getCart();
+      setCart(res.cart);
+    } catch (err) {
+      console.error('Failed to load cart:', err);
+    } finally {
+      setLoadingCart(false);
+    }
+  };
+
+  const handleUpdateQuantity = async (productId, newQuantity) => {
+    if (newQuantity < 1) return;
+    setUpdatingItem(prev => ({ ...prev, [productId]: true }));
+    try {
+      const res = await cartService.updateCartItem(productId, newQuantity);
+      setCart(res.cart);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update quantity');
+    } finally {
+      setUpdatingItem(prev => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const handleRemoveItem = async (productId) => {
+    if (!window.confirm('Remove this item from cart?')) return;
+    setUpdatingItem(prev => ({ ...prev, [productId]: true }));
+    try {
+      const res = await cartService.removeFromCart(productId);
+      setCart(res.cart);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to remove item');
+    } finally {
+      setUpdatingItem(prev => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const handleClearCart = async () => {
+    if (!window.confirm('Clear entire cart?')) return;
+    setLoadingCart(true);
+    try {
+      const res = await cartService.clearCart();
+      setCart(res.cart);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to clear cart');
+    } finally {
+      setLoadingCart(false);
+    }
+  };
+
+  const calculateCartTotal = () => {
+    if (!cart || !cart.items) return 0;
+    return cart.items.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  // Orders functions
+  const loadOrders = async () => {
+    setLoadingOrders(true);
+    try {
+      const res = await orderService.getOrders({
+        status: filterStatus,
+        search: searchQuery
+      });
+      setOrders(res.orders || []);
+    } catch (err) {
+      console.error('Failed to load orders:', err);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'orders') {
+      loadOrders();
+    }
+  }, [filterStatus, searchQuery]);
+
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+    try {
+      await orderService.cancelOrder(orderId);
+      loadOrders();
+      alert('Order cancelled successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to cancel order');
+    }
+  };
+
+  // Profile functions
+  const loadProfile = async () => {
+    try {
+      const res = await userService.getProfile();
+      setProfile(res.user);
+      setProfileForm({
+        name: res.user.name || '',
+        email: res.user.email || '',
+        phone: res.user.phone || ''
+      });
+    } catch (err) {
+      console.error('Failed to load profile:', err);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const res = await userService.updateProfile(profileForm);
+      setProfile(res.user);
+      setEditingProfile(false);
+      alert('Profile updated successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update profile');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+    try {
+      await userService.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      alert('Password changed successfully');
+      setShowPasswordModal(false);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to change password');
+    }
+  };
+
+  // Address functions
+  const loadAddresses = async () => {
+    setLoadingAddresses(true);
+    try {
+      const res = await userService.getAddresses();
+      setAddresses(res.addresses || []);
+    } catch (err) {
+      console.error('Failed to load addresses:', err);
+    } finally {
+      setLoadingAddresses(false);
+    }
+  };
+
+  const handleSaveAddress = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingAddress) {
+        await userService.updateAddress(editingAddress._id, addressForm);
+        alert('Address updated successfully');
+      } else {
+        await userService.addAddress(addressForm);
+        alert('Address added successfully');
+      }
+      setShowAddressModal(false);
+      setEditingAddress(null);
+      setAddressForm({
+        label: '', fullAddress: '', street: '', city: '', state: '', zipCode: '', phone: '', isDefault: false
+      });
+      loadAddresses();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to save address');
+    }
+  };
+
+  const handleDeleteAddress = async (addressId) => {
+    if (!window.confirm('Delete this address?')) return;
+    try {
+      await userService.deleteAddress(addressId);
+      loadAddresses();
+      alert('Address deleted successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete address');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login');
+  };
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -120,21 +277,14 @@ const BuyerDashboard = () => {
     }
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         order.farmer.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || order.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
-
   const OrderCard = ({ order }) => (
     <div className="bg-white rounded-xl border border-gray-200 hover:shadow-lg transition p-5">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="font-bold text-gray-800 text-lg">{order.id}</h3>
+          <h3 className="font-bold text-gray-800 text-lg">{order.orderId}</h3>
           <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
-            <Calendar className="w-4 h-4" />
-            {new Date(order.date).toLocaleDateString('en-GB')}
+            <Clock className="w-4 h-4" />
+            {new Date(order.createdAt).toLocaleDateString('en-GB')}
           </p>
         </div>
         <span className={`px-3 py-1.5 rounded-full text-xs font-semibold border flex items-center gap-1 ${getStatusColor(order.status)}`}>
@@ -144,18 +294,21 @@ const BuyerDashboard = () => {
       </div>
 
       <div className="space-y-2 mb-4">
-        {order.items.map((item, idx) => (
+        {order.items.slice(0, 2).map((item, idx) => (
           <div key={idx} className="flex justify-between items-center text-sm">
-            <span className="text-gray-700">{item.name} ({item.quantity} {item.unit})</span>
-            <span className="font-medium text-gray-900">PKR {item.price * item.quantity}</span>
+            <span className="text-gray-700">{item.product?.name || 'Product'} ({item.quantity})</span>
+            <span className="font-medium text-gray-900">Rs {item.price * item.quantity}</span>
           </div>
         ))}
+        {order.items.length > 2 && (
+          <p className="text-sm text-gray-500">+ {order.items.length - 2} more items</p>
+        )}
       </div>
 
       <div className="pt-4 border-t border-gray-200 flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-600">Total Amount</p>
-          <p className="text-xl font-bold text-green-600">PKR {order.total}</p>
+          <p className="text-xl font-bold text-green-600">Rs {order.total}</p>
         </div>
         <button
           onClick={() => setSelectedOrder(order)}
@@ -188,20 +341,30 @@ const BuyerDashboard = () => {
           <button
             onClick={() => { setActiveTab('orders'); setShowMobileMenu(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-              activeTab === 'orders' 
-                ? 'bg-green-50 text-green-700 font-medium' 
-                : 'text-gray-700 hover:bg-gray-50'
+              activeTab === 'orders' ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
             <Package className="w-5 h-5" />
             My Orders
           </button>
           <button
+            onClick={() => { setActiveTab('cart'); setShowMobileMenu(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+              activeTab === 'cart' ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <ShoppingCart className="w-5 h-5" />
+            Shopping Cart
+            {cart && cart.items && cart.items.length > 0 && (
+              <span className="ml-auto bg-green-600 text-white text-xs px-2 py-1 rounded-full">
+                {cart.items.length}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => { setActiveTab('profile'); setShowMobileMenu(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-              activeTab === 'profile' 
-                ? 'bg-green-50 text-green-700 font-medium' 
-                : 'text-gray-700 hover:bg-gray-50'
+              activeTab === 'profile' ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
             <User className="w-5 h-5" />
@@ -210,9 +373,7 @@ const BuyerDashboard = () => {
           <button
             onClick={() => { setActiveTab('addresses'); setShowMobileMenu(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-              activeTab === 'addresses' 
-                ? 'bg-green-50 text-green-700 font-medium' 
-                : 'text-gray-700 hover:bg-gray-50'
+              activeTab === 'addresses' ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
             <Home className="w-5 h-5" />
@@ -221,9 +382,7 @@ const BuyerDashboard = () => {
           <button
             onClick={() => { setActiveTab('settings'); setShowMobileMenu(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-              activeTab === 'settings' 
-                ? 'bg-green-50 text-green-700 font-medium' 
-                : 'text-gray-700 hover:bg-gray-50'
+              activeTab === 'settings' ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
             <Settings className="w-5 h-5" />
@@ -232,7 +391,10 @@ const BuyerDashboard = () => {
         </nav>
 
         <div className="p-4 border-t border-gray-200">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition"
+          >
             <LogOut className="w-5 h-5" />
             Logout
           </button>
@@ -255,7 +417,7 @@ const BuyerDashboard = () => {
                 <ShoppingBag className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-800">Welcome Back!</h1>
+                <h1 className="text-xl font-bold text-gray-800">Welcome Back{profile ? `, ${profile.name}` : ''}!</h1>
                 <p className="text-sm text-gray-600 hidden sm:block">Manage your orders and profile</p>
               </div>
             </div>
@@ -289,7 +451,7 @@ const BuyerDashboard = () => {
             </div>
 
             <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-semibold">
-              U
+              {profile?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
           </div>
         </div>
@@ -300,18 +462,159 @@ const BuyerDashboard = () => {
 
         {/* Main Content */}
         <main className="flex-1 p-4 lg:p-6">
+          {/* CART TAB */}
+          {activeTab === 'cart' && (
+            <div className="space-y-6 max-w-6xl mx-auto">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                  <ShoppingCart className="w-7 h-7 text-green-600" />
+                  Shopping Cart
+                </h2>
+                {cart && cart.items && cart.items.length > 0 && (
+                  <button
+                    onClick={handleClearCart}
+                    className="text-red-600 hover:text-red-700 font-medium flex items-center gap-2"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    Clear Cart
+                  </button>
+                )}
+              </div>
+
+              {loadingCart ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full mx-auto mb-4" />
+                  <p className="text-gray-600">Loading cart...</p>
+                </div>
+              ) : !cart || !cart.items || cart.items.length === 0 ? (
+                <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                  <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-600 mb-2">Your cart is empty</h3>
+                  <p className="text-gray-500 mb-6">Add some products from the marketplace</p>
+                  <button
+                    onClick={() => navigate('/marketplace')}
+                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                  >
+                    Browse Products
+                  </button>
+                </div>
+              ) : (
+                <div className="grid lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2 space-y-4">
+                    {cart.items.map((item) => (
+                      <div key={item.product._id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition">
+                        <div className="flex gap-4">
+                          <img
+                            src={item.product.images?.[0]?.url || '/placeholder.png'}
+                            alt={item.product.name}
+                            className="w-24 h-24 object-cover rounded-lg"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <h3 className="font-bold text-gray-800">{item.product.name}</h3>
+                                <p className="text-sm text-gray-600">
+                                  From: {item.product.farmer?.location || 'Unknown'}
+                                </p>
+                                {item.product.isOrganic && (
+                                  <span className="inline-block mt-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded">
+                                    Organic
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleRemoveItem(item.product._id)}
+                                disabled={updatingItem[item.product._id]}
+                                className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
+                            
+                            <div className="flex items-center justify-between mt-4">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => handleUpdateQuantity(item.product._id, item.quantity - 1)}
+                                  disabled={item.quantity <= 1 || updatingItem[item.product._id]}
+                                  className="p-1 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <Minus className="w-4 h-4" />
+                                </button>
+                                <span className="font-semibold text-gray-800 w-12 text-center">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  onClick={() => handleUpdateQuantity(item.product._id, item.quantity + 1)}
+                                  disabled={updatingItem[item.product._id]}
+                                  className="p-1 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </button>
+                              </div>
+                              
+                              <div className="text-right">
+                                <p className="text-sm text-gray-600">
+                                  Rs {item.price} × {item.quantity}
+                                </p>
+                                <p className="text-lg font-bold text-green-600">
+                                  Rs {item.price * item.quantity}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="lg:col-span-1">
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 sticky top-24">
+                      <h3 className="font-bold text-xl text-gray-800 mb-4">Order Summary</h3>
+                      
+                      <div className="space-y-3 mb-6">
+                        <div className="flex justify-between text-gray-700">
+                          <span>Subtotal ({cart.items.length} items)</span>
+                          <span>Rs {calculateCartTotal()}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-700">
+                          <span>Delivery Fee</span>
+                          <span>Rs 150</span>
+                        </div>
+                        <div className="pt-3 border-t border-gray-200 flex justify-between text-lg font-bold text-gray-800">
+                          <span>Total</span>
+                          <span className="text-green-600">Rs {calculateCartTotal() + 150}</span>
+                        </div>
+                      </div>
+
+                      <button className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium mb-3">
+                        Proceed to Checkout
+                      </button>
+                      
+                      <button
+                        onClick={() => navigate('/marketplace')}
+                        className="w-full py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium text-gray-700"
+                      >
+                        Continue Shopping
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ORDERS TAB */}
           {activeTab === 'orders' && (
             <>
               {!selectedOrder ? (
                 <>
-                  {/* Filters */}
                   <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
                     <div className="flex flex-col sm:flex-row gap-4">
                       <div className="flex-1 relative">
                         <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                         <input
                           type="text"
-                          placeholder="Search by order ID or farmer name..."
+                          placeholder="Search by order ID..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -334,183 +637,86 @@ const BuyerDashboard = () => {
                     </div>
                   </div>
 
-                  {/* Orders Grid */}
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {filteredOrders.map(order => (
-                      <OrderCard key={order.id} order={order} />
-                    ))}
-                  </div>
-
-                  {filteredOrders.length === 0 && (
+                  {loadingOrders ? (
                     <div className="text-center py-12">
+                      <div className="animate-spin w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full mx-auto mb-4" />
+                      <p className="text-gray-600">Loading orders...</p>
+                    </div>
+                  ) : orders.length > 0 ? (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {orders.map(order => (
+                        <OrderCard key={order._id} order={order} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
                       <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                       <h3 className="text-xl font-semibold text-gray-600 mb-2">No orders found</h3>
-                      <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+                      <p className="text-gray-500 mb-6">Start shopping to place your first order</p>
+                      <button
+                        onClick={() => navigate('/marketplace')}
+                        className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                      >
+                        Browse Products
+                      </button>
                     </div>
                   )}
                 </>
               ) : (
-                <div className="space-y-6">
-                  <button
-                    onClick={() => setSelectedOrder(null)}
-                    className="flex items-center gap-2 text-green-600 hover:text-green-700 font-medium"
-                  >
-                    <ChevronRight className="w-5 h-5 rotate-180" />
-                    Back to Orders
-                  </button>
+                // Selected order details view
+                <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-3xl mx-auto">
+                  <div className="flex justify-between items-start mb-4">
+                    <h2 className="text-xl font-bold text-gray-800">Order Details: {selectedOrder.orderId}</h2>
+                    <button
+                      onClick={() => setSelectedOrder(null)}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
 
-                  {/* Order Details */}
-                  <div className="bg-white rounded-xl border border-gray-200 p-6">
-                    <div className="flex items-start justify-between mb-6">
-                      <div>
-                        <h2 className="text-2xl font-bold text-gray-800">{selectedOrder.id}</h2>
-                        <p className="text-gray-600 mt-1">
-                          Placed on {new Date(selectedOrder.date).toLocaleDateString('en-GB', { 
-                            day: 'numeric', 
-                            month: 'long', 
-                            year: 'numeric' 
-                          })}
-                        </p>
-                      </div>
-                      <span className={`px-4 py-2 rounded-full text-sm font-semibold border flex items-center gap-2 ${getStatusColor(selectedOrder.status)}`}>
-                        {getStatusIcon(selectedOrder.status)}
-                        {selectedOrder.status.replace('-', ' ').toUpperCase()}
-                      </span>
-                    </div>
-
-                    {/* Tracking Timeline */}
-                    <div className="mb-8">
-                      <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        <Truck className="w-5 h-5 text-green-600" />
-                        Order Tracking
-                      </h3>
-                      <div className="relative">
-                        {selectedOrder.delivery.trackingSteps.map((step, idx) => (
-                          <div key={idx} className="flex gap-4 pb-8 last:pb-0 relative">
-                            <div className="flex flex-col items-center">
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
-                                step.completed 
-                                  ? 'bg-green-500 border-green-500' 
-                                  : 'bg-white border-gray-300'
-                              }`}>
-                                {step.completed ? (
-                                  <CheckCircle className="w-5 h-5 text-white" />
-                                ) : (
-                                  <div className="w-3 h-3 bg-gray-300 rounded-full" />
-                                )}
-                              </div>
-                              {idx < selectedOrder.delivery.trackingSteps.length - 1 && (
-                                <div className={`w-0.5 h-full ${step.completed ? 'bg-green-500' : 'bg-gray-300'}`} />
-                              )}
-                            </div>
-                            <div className="flex-1 pt-1">
-                              <h4 className={`font-semibold ${step.completed ? 'text-gray-800' : 'text-gray-400'}`}>
-                                {step.status}
-                              </h4>
-                              {step.date && (
-                                <p className="text-sm text-gray-500 mt-1">{step.date}</p>
-                              )}
-                            </div>
+                  <div className="space-y-4">
+                    {selectedOrder.items.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center p-4 border rounded-lg">
+                        <div className="flex items-center gap-4">
+                          <img
+                            src={item.product.images?.[0]?.url || '/placeholder.png'}
+                            alt={item.product.name}
+                            className="w-16 h-16 object-cover rounded"
+                          />
+                          <div>
+                            <h3 className="font-semibold text-gray-800">{item.product.name}</h3>
+                            <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
                           </div>
-                        ))}
+                        </div>
+                        <div className="text-right font-semibold text-gray-800">
+                          Rs {item.price * item.quantity}
+                        </div>
                       </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 flex justify-between items-center border-t pt-4">
+                    <div className="text-gray-700">
+                      <p>Subtotal: Rs {selectedOrder.total}</p>
+                      <p>Delivery Fee: Rs 150</p>
+                      <p className="font-bold text-green-600">Total: Rs {selectedOrder.total + 150}</p>
                     </div>
-
-                    {/* Delivery Address */}
-                    <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                      <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                        <MapPin className="w-5 h-5 text-green-600" />
-                        Delivery Address
-                      </h3>
-                      <p className="text-gray-700">{selectedOrder.delivery.address}</p>
-                      <div className="mt-3 flex items-center gap-4 text-sm">
-                        <span className="text-gray-600">
-                          Expected: {new Date(selectedOrder.delivery.estimatedDate).toLocaleDateString('en-GB')}
-                        </span>
-                        {selectedOrder.delivery.actualDate && (
-                          <span className="text-green-600 font-medium">
-                            Delivered: {new Date(selectedOrder.delivery.actualDate).toLocaleDateString('en-GB')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Items Ordered */}
-                    <div className="mb-6">
-                      <h3 className="font-semibold text-gray-800 mb-3">Items Ordered</h3>
-                      <div className="space-y-3">
-                        {selectedOrder.items.map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div>
-                              <h4 className="font-medium text-gray-800">{item.name}</h4>
-                              <p className="text-sm text-gray-600">
-                                Quantity: {item.quantity} {item.unit} × PKR {item.price}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">From: {item.farmer}</p>
-                            </div>
-                            <span className="font-bold text-gray-800">
-                              PKR {item.quantity * item.price}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Farmer Info */}
-                    <div className="bg-green-50 rounded-lg p-4 mb-6 border border-green-200">
-                      <h3 className="font-semibold text-gray-800 mb-3">Farmer Information</h3>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-medium text-gray-800">{selectedOrder.farmer.name}</h4>
-                          <div className="flex items-center gap-1 mt-1">
-                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                            <span className="text-sm font-semibold">{selectedOrder.farmer.rating}</span>
-                          </div>
-                          <p className="text-sm text-gray-600 flex items-center gap-1 mt-2">
-                            <MapPin className="w-4 h-4" />
-                            {selectedOrder.farmer.location}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button className="p-2 bg-white rounded-lg hover:bg-gray-50 border border-gray-200">
-                            <Phone className="w-5 h-5 text-green-600" />
-                          </button>
-                          <button className="p-2 bg-white rounded-lg hover:bg-gray-50 border border-gray-200">
-                            <MessageSquare className="w-5 h-5 text-green-600" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Order Summary */}
-                    <div className="border-t border-gray-200 pt-4">
-                      <div className="space-y-2 mb-4">
-                        <div className="flex justify-between text-gray-700">
-                          <span>Subtotal</span>
-                          <span>PKR {selectedOrder.total - 150}</span>
-                        </div>
-                        <div className="flex justify-between text-gray-700">
-                          <span>Delivery Fee</span>
-                          <span>PKR 150</span>
-                        </div>
-                        <div className="flex justify-between text-lg font-bold text-gray-800 pt-2 border-t border-gray-200">
-                          <span>Total</span>
-                          <span className="text-green-600">PKR {selectedOrder.total}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3 mt-6">
-                        <button className="flex-1 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium flex items-center justify-center gap-2">
-                          <Download className="w-5 h-5" />
-                          Download Invoice
+                    <div className="flex gap-2">
+                      {selectedOrder.status !== 'cancelled' && selectedOrder.status !== 'delivered' && (
+                        <button
+                          onClick={() => handleCancelOrder(selectedOrder._id)}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                        >
+                          Cancel Order
                         </button>
-                        {selectedOrder.status === 'delivered' && (
-                          <button className="flex-1 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2">
-                            <Star className="w-5 h-5" />
-                            Rate Order
-                          </button>
-                        )}
-                      </div>
+                      )}
+                      <button
+                        onClick={() => navigate('/marketplace')}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                      >
+                        Continue Shopping
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -518,114 +724,7 @@ const BuyerDashboard = () => {
             </>
           )}
 
-          {activeTab === 'profile' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">Profile Settings</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                  <input
-                    type="text"
-                    defaultValue="Muhammad Ali"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <input
-                    type="email"
-                    defaultValue="ali@example.com"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-                  <input
-                    type="tel"
-                    defaultValue="+92 300 1234567"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-                <button className="w-full py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium">
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'addresses' && (
-            <div className="space-y-6 max-w-4xl">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-800">My Addresses</h2>
-                <button className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium">
-                  Add New Address
-                </button>
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-white rounded-xl border-2 border-green-500 p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded">Default</span>
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <Settings className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <h3 className="font-semibold text-gray-800 mb-2">Home</h3>
-                  <p className="text-gray-600 text-sm">House 123, Street 5, DHA Phase 6, Karachi</p>
-                  <p className="text-gray-600 text-sm mt-1">+92 300 1234567</p>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-5 hover:border-green-500 transition">
-                  <div className="flex items-start justify-between mb-3">
-                    <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded">Secondary</span>
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <Settings className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <h3 className="font-semibold text-gray-800 mb-2">Office</h3>
-                  <p className="text-gray-600 text-sm">Floor 3, Building A, I.I. Chundrigar Road, Karachi</p>
-                  <p className="text-gray-600 text-sm mt-1">+92 300 1234567</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'settings' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">Settings</h2>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-semibold text-gray-800 mb-3">Notifications</h3>
-                  <div className="space-y-3">
-                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer">
-                      <span className="text-gray-700">Order Updates</span>
-                      <input type="checkbox" defaultChecked className="w-5 h-5 text-green-600 rounded focus:ring-green-500" />
-                    </label>
-                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer">
-                      <span className="text-gray-700">Promotional Offers</span>
-                      <input type="checkbox" defaultChecked className="w-5 h-5 text-green-600 rounded focus:ring-green-500" />
-                    </label>
-                    <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer">
-                      <span className="text-gray-700">New Products</span>
-                      <input type="checkbox" className="w-5 h-5 text-green-600 rounded focus:ring-green-500" />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="pt-6 border-t border-gray-200">
-                  <h3 className="font-semibold text-gray-800 mb-3">Account Security</h3>
-                  <button className="w-full py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium text-gray-700">
-                    Change Password
-                  </button>
-                </div>
-
-                <div className="pt-6 border-t border-gray-200">
-                  <h3 className="font-semibold text-red-600 mb-3">Danger Zone</h3>
-                  <button className="w-full py-3 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition font-medium text-red-600">
-                    Delete Account
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Add other tabs (Profile, Addresses, Settings) here if needed */}
         </main>
       </div>
     </div>

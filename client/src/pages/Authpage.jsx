@@ -61,7 +61,7 @@ const AuthPage = () => {
       if (user.userType === 'farmer') {
         navigate('/farmer-dashboard', { replace: true });
       } else {
-        navigate('/', { replace: true });
+        navigate('/buyer-dashboard', { replace: true });
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Login failed');
@@ -103,7 +103,7 @@ const AuthPage = () => {
       
       // Redirect based on user type with replace: true to prevent back navigation
       if (user.userType === 'farmer') {
-        navigate('/farmer-dashboard', { replace: true });
+        navigate('/become-farmer', { replace: true });
       } else {
         navigate('/buyer-dashboard', { replace: true });
       }

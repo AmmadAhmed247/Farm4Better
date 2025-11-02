@@ -8,12 +8,12 @@ export const registerFarmer = async (req, res) => {
   try {
     const { name, email, phone, farmName, location, farmType, experience } = req.body;
 
-    // 🔒 Make sure this user exists and is authenticated
-    if (!req.user?.id) {
-      return res.status(401).json({ message: "Unauthorized: Login required" });
-    }
+    // // 🔒 Make sure this user exists and is authenticated
+    // if (!req.user?.id) {
+    //   return res.status(401).json({ message: "Unauthorized: Login required" });
+    // }
 
-    const user = await User.findById(req.user.id);
+    const user = await User.findOne({email});
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
