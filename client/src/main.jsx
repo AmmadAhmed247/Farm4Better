@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 // Auth & Notifications
-// import { AuthProvider } from './context/AuthContex.jsx';
+import { AuthProvider } from './context/AuthContext.jsx';
 import { Toaster } from 'react-hot-toast';
 
 // Layout & Pages
@@ -41,8 +41,8 @@ const router = createBrowserRouter([
       { path: "/about", element: <About /> },
       { path: "/marketplace", element: <Marketplace /> },
       { path: "/contact", element: <Contact /> },
-      { path: "/farmer", element: <FarmerDashboard /> },
-      { path: "/buyer", element: <BuyerDashboard /> },
+      { path: "/farmer-dashboard", element: <FarmerDashboard /> },
+      { path: "/buyer-dashboard", element: <BuyerDashboard /> },
 
       { path: "/become-farmer", element: <BecomeFarmer /> },
       { path: "/auth", element: <AuthPage /> },
@@ -52,14 +52,21 @@ const router = createBrowserRouter([
   },
 ]);
 
+// App wrapper component to provide auth context
+const App = () => {
+  return (
+    <AuthProvider>
+      <RouterProvider router={router} />
+      <Toaster position="top-right" reverseOrder={false} />
+    </AuthProvider>
+  );
+};
+
 // Render
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-        <>
-          <RouterProvider router={router} />
-          <Toaster position="top-right" reverseOrder={false} />
-        </>
+      <App />
     </QueryClientProvider>
   </StrictMode>
 );
