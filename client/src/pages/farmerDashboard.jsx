@@ -4,7 +4,7 @@ import { farmerService } from '../services/farmer';
 import { productService } from '../services/product';
 import { toast } from 'react-hot-toast';
 import { Camera, Send, TrendingUp, Package, DollarSign, Star, Clock, MapPin, Phone, Mail, AlertCircle, CheckCircle, XCircle, Upload, MessageSquare, Leaf, Award, Users } from 'lucide-react';
-
+import axios from 'axios';
 export default function FarmerProductPage() {
   const [activeTab, setActiveTab] = useState('details');
   const [chatMessages, setChatMessages] = useState([
@@ -15,6 +15,8 @@ export default function FarmerProductPage() {
   const [productImages, setProductImages] = useState([]);
   const [aiImages, setAiImages] = useState([]);
   const messagesEndRef = useRef(null);
+  const [aiFiles, setAiFiles] = useState([]);
+
   
   const [productData, setProductData] = useState({
     name: '',
@@ -101,73 +103,83 @@ export default function FarmerProductPage() {
   };
 
   const handleAiImageChange = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    const previews = files.map(file => URL.createObjectURL(file));
-    setAiImages(prev => [...prev, ...previews]);
-  };
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
 
-  const handleAiImageAnalysis = () => {
-    // Simulated AI analysis
-    const analyses = [
-      {
-        status: 'healthy',
-        confidence: 95,
-        issues: [],
-        recommendations: [
-          'Crops are in excellent condition',
-          'Continue current irrigation schedule',
-          'Harvest within 5-7 days for optimal freshness'
-        ]
-      },
-      {
-        status: 'warning',
-        confidence: 87,
-        issues: ['Early signs of leaf curl', 'Slight discoloration on 10% of leaves'],
-        recommendations: [
-          'Monitor closely for pest activity',
-          'Consider organic pest control methods',
-          'Increase watering frequency slightly',
-          'Apply neem oil solution as preventive measure'
-        ]
-      },
-      {
-        status: 'alert',
-        confidence: 92,
-        issues: ['Fungal infection detected', 'Yellow spots on leaves'],
-        recommendations: [
-          'Isolate affected plants immediately',
-          'Apply copper-based fungicide',
-          'Improve air circulation between plants',
-          'Reduce watering frequency to prevent spread'
-        ]
-      }
-    ];
-    
-    const randomAnalysis = analyses[Math.floor(Math.random() * analyses.length)];
-    setAiAnalysis({ ...randomAnalysis, imageCount: aiImages.length });
-  };
+  const previews = files.map(file => URL.createObjectURL(file));
 
-  const handleSendMessage = () => {
-    if (chatInput.trim()) {
-      setChatMessages(prev => [...prev, { role: 'user', text: chatInput }]);
-      
-      // Simulated AI responses
-      setTimeout(() => {
-        const responses = [
-          'Based on your location in Punjab, the best time to plant wheat is mid-November. Ensure soil temperature is between 20-25°C for optimal germination.',
-          'For pest control in tomatoes, I recommend using neem oil spray (5ml per liter of water) applied weekly. Also maintain proper spacing between plants for air circulation.',
-          'Current market prices for organic vegetables are 20-30% higher than conventional produce. Focus on certification and direct marketing to maximize profits.',
-          'To improve soil health, consider crop rotation with legumes. They fix nitrogen naturally and reduce the need for chemical fertilizers.'
-        ];
-        
-        const response = responses[Math.floor(Math.random() * responses.length)];
-        setChatMessages(prev => [...prev, { role: 'ai', text: response }]);
-      }, 1000);
-      
-      setChatInput('');
+  setAiImages(prev => [...prev, ...previews]); // only for UI
+  setAiFiles(prev => [...prev, ...files]);      // actual File objects for upload
+};
+
+
+const handleAiImageAnalysis = async () => {
+  if (aiFiles.length === 0) return;
+
+  const formData = new FormData();
+  formData.append("file", aiFiles[0]); // send actual File object
+
+  try {
+    const res = await fetch("http://localhost:3000/api/ai/predict", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    const analysis = {
+      status: data.predicted_class === "Healthy Leaf" ? "healthy" : "alert",
+      confidence: typeof data.confidence === "number" ? data.confidence.toFixed(2) : 0,
+      imageCount: 1,
+      issues: data.predicted_class !== "Healthy Leaf" ? [data.predicted_class] : [],
+      recommendations:
+        data.predicted_class !== "Healthy Leaf"
+          ? ["Check irrigation", "Apply proper treatment"]
+          : [],
+    };
+
+    setAiAnalysis(analysis);
+  } catch (err) {
+    console.error("AI Analysis error:", err);
+  }
+};
+
+
+
+
+const handleSendMessage = async () => {
+  if (!chatInput.trim()) return;
+
+  const messageToSend = chatInput;
+  setChatMessages(prev => [...prev, { role: 'user', text: messageToSend }]);
+  setChatInput('');
+
+  try {
+    const { data } = await axios.post(
+  "http://localhost:3000/api/chat",
+  { message: messageToSend },
+  { 
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
     }
-  };
+  }
+);
+
+
+    setChatMessages(prev => [...prev, { role: 'ai', text: data.reply }]);
+  } catch (err) {
+    console.error("Chatbot error:", err.response?.data || err.message);
+
+    setChatMessages(prev => [
+      ...prev,
+      { role: 'ai', text: "Sorry, I couldn't process your question. Please try again." }
+    ]);
+  }
+};
+
+
+
 
   const getStatusColor = (status) => {
     switch(status) {
