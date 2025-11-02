@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { farmerService } from '../services/farmer';
+import { productService } from '../services/product';
+import { toast } from 'react-hot-toast';
 import { Camera, Send, TrendingUp, Package, DollarSign, Star, Clock, MapPin, Phone, Mail, AlertCircle, CheckCircle, XCircle, Upload, MessageSquare, Leaf, Award, Users } from 'lucide-react';
 
 export default function FarmerProductPage() {
@@ -9,31 +13,73 @@ export default function FarmerProductPage() {
   const [chatInput, setChatInput] = useState('');
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [productImages, setProductImages] = useState([]);
+  const [aiImages, setAiImages] = useState([]);
+  const messagesEndRef = useRef(null);
   
   const [productData, setProductData] = useState({
-    name: 'Organic Tomatoes',
+    name: '',
     category: 'vegetables',
-    price: '120',
+    price: '',
     unit: 'kg',
-    quantity: '500',
-    totalSales: '45000',
-    description: 'Fresh, organic tomatoes grown without pesticides',
-    isOrganic: true,
-    isPesticideFree: true
+    quantity: '',
+    description: '',
+    isOrganic: false,
+    isPesticideFree: false,
+    images: []
   });
+  
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const [productError, setProductError] = useState(null);
 
   const [farmerData] = useState({
-    name: 'Ahmed Khan',
-    location: 'Multan, Punjab',
-    phone: '+92 300 1234567',
-    email: 'ahmed.khan@example.com',
-    experience: 15,
-    totalSales: 1250000,
-    rating: 4.8,
-    responseTime: '2 hours',
-    totalProducts: 12,
-    reviews: 156
+    name: '',
+    location: '',
+    phone: '',
+    email: '',
+    experience: 0,
+    totalSales: 0,
+    rating: 0,
+    responseTime: '',
+    totalProducts: 0,
+    reviews: 0,
+    idDocument: null,
+    farmDocument: null,
+    organicCertificate: null,
+    bankProof: null
   });
+  const [farmerProfile, setFarmerProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [profileError, setProfileError] = useState(null);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      // only for farmer users
+      if (user.userType !== 'farmer') return;
+      setLoadingProfile(true);
+      setProfileError(null);
+      try {
+        // Prefer protected endpoint that uses token cookie
+        const res = await farmerService.getMyProfile();
+        setFarmerProfile(res.farmer);
+      } catch (err) {
+        console.error('Failed to load farmer profile', err);
+        setProfileError(err.response?.data?.message || 'Failed to load profile');
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
+
+  // auto-scroll chat to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -47,6 +93,18 @@ export default function FarmerProductPage() {
     const files = Array.from(e.target.files);
     const newImages = files.map(file => URL.createObjectURL(file));
     setProductImages(prev => [...prev, ...newImages]);
+    // Store actual files for upload
+    setProductData(prev => ({
+      ...prev,
+      images: [...(prev.images || []), ...files]
+    }));
+  };
+
+  const handleAiImageChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const previews = files.map(file => URL.createObjectURL(file));
+    setAiImages(prev => [...prev, ...previews]);
   };
 
   const handleAiImageAnalysis = () => {
@@ -87,7 +145,7 @@ export default function FarmerProductPage() {
     ];
     
     const randomAnalysis = analyses[Math.floor(Math.random() * analyses.length)];
-    setAiAnalysis(randomAnalysis);
+    setAiAnalysis({ ...randomAnalysis, imageCount: aiImages.length });
   };
 
   const handleSendMessage = () => {
@@ -144,27 +202,27 @@ export default function FarmerProductPage() {
         <div className="bg-white rounded-xl shadow-md p-6 border border-green-100">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                {farmerData.name.charAt(0)}
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800">{farmerData.name}</h2>
-                <div className="flex items-center gap-2 text-gray-600 mt-1">
-                  <MapPin className="w-4 h-4" />
-                  <span>{farmerData.location}</span>
+                <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                  {(farmerProfile?.name || 'F').charAt(0)}
                 </div>
-                <div className="flex items-center gap-4 mt-2">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                    <span className="font-semibold">{farmerData.rating}</span>
-                    <span className="text-gray-500 text-sm">({farmerData.reviews} reviews)</span>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">{farmerProfile?.name || 'Farmer'}</h2>
+                  <div className="flex items-center gap-2 text-gray-600 mt-1">
+                    <MapPin className="w-4 h-4" />
+                    <span>{farmerProfile?.location || ''}</span>
                   </div>
-                  <div className="flex items-center gap-1 text-sm text-gray-600">
-                    <Clock className="w-4 h-4" />
-                    <span>Responds in {farmerData.responseTime}</span>
+                  <div className="flex items-center gap-4 mt-2">
+                    <div className="flex items-center gap-1">
+                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                      <span className="font-semibold">{farmerProfile?.rating ?? '-'}</span>
+                      <span className="text-gray-500 text-sm">({farmerProfile?.reviews ?? 0} reviews)</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-sm text-gray-600">
+                      <Clock className="w-4 h-4" />
+                      <span>Responds in {farmerProfile?.responseTime || '-'}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
             </div>
             <div className="flex gap-2">
               <button className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
@@ -184,32 +242,81 @@ export default function FarmerProductPage() {
               <div className="flex items-center justify-center gap-2 text-green-600 mb-1">
                 <Award className="w-5 h-5" />
               </div>
-              <div className="text-2xl font-bold text-gray-800">{farmerData.experience}</div>
+              <div className="text-2xl font-bold text-gray-800">{farmerProfile?.experience ?? 0}</div>
               <div className="text-sm text-gray-600">Years Experience</div>
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 text-green-600 mb-1">
                 <Package className="w-5 h-5" />
               </div>
-              <div className="text-2xl font-bold text-gray-800">{farmerData.totalProducts}</div>
+              <div className="text-2xl font-bold text-gray-800">{farmerProfile?.totalProducts ?? 0}</div>
               <div className="text-sm text-gray-600">Products Listed</div>
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 text-green-600 mb-1">
                 <DollarSign className="w-5 h-5" />
               </div>
-              <div className="text-2xl font-bold text-gray-800">PKR {(farmerData.totalSales / 1000).toFixed(0)}K</div>
+              <div className="text-2xl font-bold text-gray-800">PKR {( (farmerProfile?.totalSales ?? 0) / 1000).toFixed(0)}K</div>
               <div className="text-sm text-gray-600">Total Sales</div>
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 text-green-600 mb-1">
                 <Users className="w-5 h-5" />
               </div>
-              <div className="text-2xl font-bold text-gray-800">{farmerData.reviews}</div>
+              <div className="text-2xl font-bold text-gray-800">{farmerProfile?.reviews ?? 0}</div>
               <div className="text-sm text-gray-600">Customer Reviews</div>
             </div>
           </div>
         </div>
+
+        {/* Documents */}
+        {farmerProfile && (farmerProfile.idDocument || farmerProfile.farmDocument || farmerProfile.organicCertificate || farmerProfile.bankProof) && (
+          <div className="bg-white rounded-xl shadow-md p-6 border border-green-100">
+            <h3 className="text-lg font-semibold mb-4">Uploaded Documents</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {farmerProfile.idDocument && (
+                <div className="text-center">
+                  <div className="mb-2 font-medium">ID Document</div>
+                  <a href={farmerProfile.idDocument} target="_blank" rel="noreferrer">
+                    <img src={farmerProfile.idDocument} alt="ID Document" className="mx-auto w-32 h-20 object-cover rounded border" />
+                  </a>
+                </div>
+              )}
+              {farmerProfile.farmDocument && (
+                <div className="text-center">
+                  <div className="mb-2 font-medium">Farm Document</div>
+                  <a href={farmerProfile.farmDocument} target="_blank" rel="noreferrer">
+                    <img src={farmerProfile.farmDocument} alt="Farm Document" className="mx-auto w-32 h-20 object-cover rounded border" />
+                  </a>
+                </div>
+              )}
+              {farmerProfile.organicCertificate && (
+                <div className="text-center">
+                  <div className="mb-2 font-medium">Organic Certificate</div>
+                  <a href={farmerProfile.organicCertificate} target="_blank" rel="noreferrer">
+                    <img src={farmerProfile.organicCertificate} alt="Organic Certificate" className="mx-auto w-32 h-20 object-cover rounded border" />
+                  </a>
+                </div>
+              )}
+              {farmerProfile.bankProof && (
+                <div className="text-center">
+                  <div className="mb-2 font-medium">Bank Proof</div>
+                  <a href={farmerProfile.bankProof} target="_blank" rel="noreferrer">
+                    <img src={farmerProfile.bankProof} alt="Bank Proof" className="mx-auto w-32 h-20 object-cover rounded border" />
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Profile loader / errors */}
+        {loadingProfile && (
+          <div className="max-w-7xl mx-auto p-4 text-center text-gray-600">Loading your profile...</div>
+        )}
+        {profileError && (
+          <div className="max-w-7xl mx-auto p-4 text-center text-red-600">{profileError}</div>
+        )}
 
         {/* Tab Navigation */}
         <div className="bg-white rounded-xl shadow-md border border-green-100">
@@ -396,14 +503,105 @@ export default function FarmerProductPage() {
                 </div>
               </div>
 
+              {/* Show approval status message if farmer is not approved */}
+              {farmerProfile?.status !== 'approved' && (
+                <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-yellow-600" />
+                    <p className="text-yellow-800 font-medium">Document Verification Pending</p>
+                  </div>
+                  <p className="mt-1 text-sm text-yellow-700">
+                    Our team is currently reviewing your documents. You'll be able to add products once your documents are approved.
+                  </p>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                <button className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
-                  Cancel
+                <button 
+                  onClick={() => {
+                    setProductData({
+                      name: '',
+                      category: 'vegetables',
+                      price: '',
+                      unit: 'kg',
+                      quantity: '',
+                      description: '',
+                      isOrganic: false,
+                      isPesticideFree: false,
+                      images: []
+                    });
+                    setProductImages([]);
+                  }}
+                  type="button"
+                  disabled={isCreatingProduct || farmerProfile?.status !== 'approved'}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+                >
+                  Clear
                 </button>
-                <button className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition">
-                  Save Product
+                <button 
+                  onClick={async () => {
+                    if (farmerProfile?.status !== 'approved') {
+                      toast.error('Please wait for document approval before adding products');
+                      return;
+                    }
+
+                    try {
+                      setIsCreatingProduct(true);
+                      setProductError(null);
+                      
+                      // Convert price and quantity to numbers
+                      const dataToSubmit = {
+                        ...productData,
+                        price: Number(productData.price),
+                        quantity: Number(productData.quantity)
+                      };
+                      
+                      const res = await productService.create(dataToSubmit);
+                      
+                      toast.success('Product created successfully!');
+                      
+                      // Clear form
+                      setProductData({
+                        name: '',
+                        category: 'vegetables',
+                        price: '',
+                        unit: 'kg',
+                        quantity: '',
+                        description: '',
+                        isOrganic: false,
+                        isPesticideFree: false,
+                        images: []
+                      });
+                      setProductImages([]);
+                      
+                    } catch (err) {
+                      console.error('Failed to create product:', err);
+                      const errMsg = err.response?.data?.message || 'Failed to create product';
+                      setProductError(errMsg);
+                      toast.error(errMsg);
+                    } finally {
+                      setIsCreatingProduct(false);
+                    }
+                  }}
+                  disabled={
+                    isCreatingProduct || 
+                    !productData.name || 
+                    !productData.price || 
+                    !productData.quantity || 
+                    !productData.description ||
+                    farmerProfile?.status !== 'approved'
+                  }
+                  className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isCreatingProduct ? 'Creating...' : farmerProfile?.status !== 'approved' ? 'Approval Pending' : 'Save Product'}
                 </button>
               </div>
+              
+              {productError && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                  {productError}
+                </div>
+              )}
             </div>
           )}
 
@@ -424,12 +622,20 @@ export default function FarmerProductPage() {
                     accept="image/*"
                     className="hidden"
                     id="ai-image-upload"
+                    onChange={handleAiImageChange}
                   />
                   <label htmlFor="ai-image-upload" className="cursor-pointer">
                     <Upload className="w-16 h-16 text-gray-400 mx-auto mb-3" />
                     <p className="text-gray-600 font-medium mb-1">Upload images for AI analysis</p>
                     <p className="text-sm text-gray-500">Drop files here or click to browse</p>
                   </label>
+                  {aiImages.length > 0 && (
+                    <div className="grid grid-cols-4 gap-2 mt-4">
+                      {aiImages.map((src, i) => (
+                        <img key={i} src={src} alt={`ai-${i}`} className="w-24 h-16 object-cover rounded border mx-auto" />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -457,6 +663,9 @@ export default function FarmerProductPage() {
                          'Action Required'}
                       </h3>
                       <p className="text-sm text-gray-600">Confidence: {aiAnalysis.confidence}%</p>
+                      {typeof aiAnalysis.imageCount === 'number' && (
+                        <p className="text-sm text-gray-600">Images analyzed: {aiAnalysis.imageCount}</p>
+                      )}
                     </div>
                   </div>
 
@@ -518,6 +727,7 @@ export default function FarmerProductPage() {
                     </div>
                   </div>
                 ))}
+                <div ref={messagesEndRef} />
               </div>
 
               <div className="flex gap-2">
@@ -525,7 +735,7 @@ export default function FarmerProductPage() {
                   type="text"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSendMessage(); } }}
                   placeholder="Ask me about farming..."
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />

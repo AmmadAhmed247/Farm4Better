@@ -11,8 +11,9 @@ export const uploadToImageKit = async (file) => {
       folder: "/farm-products",
     });
 
-    console.log("Uploaded to ImageKit:", uploaded.url);
-    return uploaded;
+  console.log("Uploaded to ImageKit:", uploaded.url);
+  // Return the uploaded file URL (string) so Mongoose string fields receive a string
+  return uploaded.url;
   } catch (error) {
     console.error("ImageKit upload failed:", error);
     throw new Error("Image upload failed");

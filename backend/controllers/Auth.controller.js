@@ -3,10 +3,12 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 //  Generate JWT Token
-const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: "7d", // token valid for 7 days
-  });
+const generateToken = (user) => {
+  return jwt.sign(
+    { id: user._id, email: user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" } // token valid for 7 days
+  );
 };
 
 // REGISTER
@@ -43,7 +45,7 @@ export const registerUser = async (req, res) => {
     });
 
     // Generate token for immediate login
-    const token = generateToken(newUser._id);
+    const token = generateToken(newUser);
 
     // Set secure cookie
     res.cookie("token", token, {

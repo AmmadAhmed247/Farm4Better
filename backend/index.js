@@ -6,6 +6,7 @@ import connectDB from "./utils/db.js";
 import authRoutes from "./routes/auth.route.js";
 import FarmerRoute from "./routes/farmer.route.js";
 import productRoutes from "./routes/product.route.js";
+import auth from './middlewares/auth.js';
 dotenv.config();
 
 const app = express();
@@ -24,10 +25,10 @@ app.use(
 );
 
 app.use("/api/auth", authRoutes);
-app.use("/api/farmers", FarmerRoute);
-app.use("/api/products", productRoutes);
+app.use("/api/farmer", FarmerRoute);
+app.use("/api/products", auth, productRoutes); // Protect all product routes with auth
 
 
 
 
-app.listen(process.env.PORT, () => console.log(`Server running on port `));
+app.listen(process.env.PORT, () => console.log(`Server running on port ${process.env.PORT}`));

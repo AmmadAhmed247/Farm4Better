@@ -1,21 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { productService } from '../services/product';
 import { Search, Filter, MapPin, Star, ShoppingCart, Heart, X, SlidersHorizontal } from 'lucide-react';
 
-// Dummy product data
-const allProducts = [
-  { id: 1, name: "Fresh Tomatoes", category: "Vegetables", location: "Lahore, Punjab", price: 80, unit: "kg", rating: 4.8, reviews: 124, image: "https://images.unsplash.com/photo-1546094096-0df4bcaaa337?w=400&h=400&fit=crop&q=80", inStock: true, organic: true },
-  { id: 2, name: "Organic Carrots", category: "Vegetables", location: "Karachi, Sindh", price: 100, unit: "kg", rating: 4.7, reviews: 98, image: "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&h=400&fit=crop&q=80", inStock: true, organic: true },
-  { id: 3, name: "Sweet Mangoes", category: "Fruits", location: "Multan, Punjab", price: 150, unit: "kg", rating: 4.9, reviews: 256, image: "https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&h=400&fit=crop&q=80", inStock: true, organic: false },
-  { id: 4, name: "Fresh Spinach", category: "Vegetables", location: "Islamabad", price: 60, unit: "kg", rating: 4.6, reviews: 87, image: "https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=400&h=400&fit=crop&q=80", inStock: true, organic: true },
-  { id: 5, name: "Farm Potatoes", category: "Vegetables", location: "Peshawar, KPK", price: 50, unit: "kg", rating: 4.5, reviews: 145, image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&h=400&fit=crop&q=80", inStock: true, organic: false },
-  { id: 6, name: "Red Onions", category: "Vegetables", location: "Quetta, Balochistan", price: 70, unit: "kg", rating: 4.4, reviews: 76, image: "https://images.unsplash.com/photo-1508747703725-719777637510?w=400&h=400&fit=crop&q=80", inStock: true, organic: false },
-  { id: 7, name: "Farm Fresh Eggs", category: "Dairy & Eggs", location: "Faisalabad, Punjab", price: 300, unit: "dozen", rating: 4.9, reviews: 203, image: "https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=400&h=400&fit=crop&q=80", inStock: true, organic: true },
-  { id: 8, name: "Basmati Rice", category: "Grains", location: "Gujranwala, Punjab", price: 200, unit: "kg", rating: 4.8, reviews: 189, image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&h=400&fit=crop&q=80", inStock: true, organic: false },
-  { id: 9, name: "Green Apples", category: "Fruits", location: "Swat, KPK", price: 180, unit: "kg", rating: 4.7, reviews: 134, image: "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=400&h=400&fit=crop&q=80", inStock: true, organic: true },
-  { id: 10, name: "Red Chillies", category: "Spices", location: "Hyderabad, Sindh", price: 250, unit: "kg", rating: 4.6, reviews: 92, image: "https://images.unsplash.com/photo-1583662842075-5242e6b35080?w=400&h=400&fit=crop&q=80", inStock: true, organic: false },
-  { id: 11, name: "Fresh Cucumbers", category: "Vegetables", location: "Sialkot, Punjab", price: 55, unit: "kg", rating: 4.5, reviews: 68, image: "https://images.unsplash.com/photo-1568584711271-e0d00ec91c7b?w=400&h=400&fit=crop&q=80", inStock: true, organic: true },
-  { id: 12, name: "Fresh Cabbage", category: "Vegetables", location: "Rawalpindi, Punjab", price: 45, unit: "kg", rating: 4.4, reviews: 54, image: "https://images.unsplash.com/photo-1594059723914-a1e6c6c0b04e?w=400&h=400&fit=crop&q=80", inStock: false, organic: false },
-];
+// we'll fetch real products from backend
+// component will map backend product shape to UI-friendly fields
 
 const categories = ["All", "Vegetables", "Fruits", "Grains", "Dairy & Eggs", "Spices"];
 const locations = ["All Locations", "Punjab", "Sindh", "KPK", "Balochistan", "Islamabad"];
@@ -29,16 +17,50 @@ const Marketplace = () => {
   const [organicOnly, setOrganicOnly] = useState(false);
   const [inStockOnly, setInStockOnly] = useState(false);
   const [sortBy, setSortBy] = useState("featured");
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Filter products
-  const filteredProducts = allProducts.filter(product => {
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await productService.getAll();
+        // res.products is an array from backend
+        const mapped = res.products.map(p => ({
+          id: p._id,
+          name: p.name,
+          category: p.category.charAt(0).toUpperCase() + p.category.slice(1),
+          location: p.farmer?.location || 'Unknown',
+          price: p.price,
+          unit: p.unit,
+          rating: p.rating || 4.5,
+          reviews: p.reviews || 0,
+          image: p.images && p.images.length > 0 ? p.images[0].url : '/placeholder.png',
+          inStock: p.quantity > 0,
+          organic: p.isOrganic,
+        }));
+        setProducts(mapped);
+      } catch (err) {
+        console.error('Failed to load products', err);
+        setError(err.response?.data?.message || err.message || 'Failed to load products');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  // Filter products (based on fetched products)
+  const filteredProducts = (products || []).filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
     const matchesLocation = selectedLocation === "All Locations" || product.location.includes(selectedLocation);
     const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
     const matchesOrganic = !organicOnly || product.organic;
     const matchesStock = !inStockOnly || product.inStock;
-    
+
     return matchesSearch && matchesCategory && matchesLocation && matchesPrice && matchesOrganic && matchesStock;
   });
 
@@ -214,12 +236,16 @@ const Marketplace = () => {
             {/* Results Count */}
             <div className="mb-6 flex items-center justify-between">
               <p className="text-gray-600">
-                Showing <span className="font-semibold text-gray-900">{sortedProducts.length}</span> products
+                Showing <span className="font-semibold text-gray-900">{(products || []).length}</span> products
               </p>
             </div>
 
             {/* Products */}
-            {sortedProducts.length > 0 ? (
+            {loading ? (
+              <div className="text-center py-12">Loading products...</div>
+            ) : error ? (
+              <div className="text-center text-red-600 py-12">{error}</div>
+            ) : products.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {sortedProducts.map(product => (
                   <div
@@ -250,7 +276,7 @@ const Marketplace = () => {
 
                     {/* Content */}
                     <div className="p-5">
-                      <h3 className="font-bold text-lg text-gray-900 mb-2">{product.name}</h3>
+                        <h3 className="font-bold text-lg text-gray-900 mb-2">{product.name}</h3>
                       
                       <div className="flex items-center gap-2 mb-2">
                         <div className="flex items-center gap-1">
